@@ -16,4 +16,9 @@ Run `python3 nerf.py`
 This will result in the test images predicted and shown in the report.
 
 
+### Structure from Motion ###
+
+![ransac](https://user-images.githubusercontent.com/55713396/217652416-38f74c01-9a02-4506-80f9-c58c6279b582.png)
+
+
 
