@@ -1,56 +1,48 @@
-
+import cv2
 import numpy as np
-import random
-
 from EstimateFundamentalMatrix import *
 
 
-def error(x1,x2,f):
-  x1 = np.append(x1,1) #np.reshape(x1,(1,2))
-  x1 = np.reshape(x1,(3,1))
-  x2 = np.append(x2,1)
-  x2 = np.reshape(x2, (1,3))
-  # print(f"bhok = {x1, x1.shape}, x2={x2, x2.shape}, f={f.shape}")
-  err = np.dot(x2, np.dot(f, x1))
-  return np.abs(err)
+def error_F(pts1,pts2,F):
+    
+    "Checking the epipolar constraint"
+    x1 = np.array([pts1[0], pts1[1],1])
+    x2 = np.array([pts2[0], pts2[1],1]).T
+
+    error = np.dot(x2,np.dot(F,x1))
+
+    return np.abs(error)
+
+def getInliers(pts1,pts2,idx):
+
+    "Point Correspondence are computed using SIFT feature descriptors, data becomes noisy, RANSAC is used with fundamental matrix with maximum no of Inliers"
+    
+    no_iterations = 2000
+    error_threshold = 0.002
+    inliers_threshold = 0
+    inliers_indices = []
+    f_inliers = None
+
+    for i in range(0, no_iterations):
+        # We need 8 points randomly for 8 points algorithm
+        n_rows = pts1.shape[0]
+        rand_indxs = np.random.choice(n_rows,8)
+        x1 = pts1[rand_indxs,:]
+        x2 = pts2[rand_indxs,:]
+        F = EstimateFundamentalMatrix(x1,x2)
+        indices = []
+
+        if F is not None:
+            for j in range(n_rows):
+                error = error_F(pts1[j,:],pts2[j,:],F)  #x2.TFx1 = 0
+                if error < error_threshold:
+                    indices.append(idx[j])
+
+        if len(indices) > inliers_threshold:
+            inliers_threshold = len(indices)
+            inliers_indices = indices
+            f_inliers = F                       #We choose F with Maximum no of Inliers.
+
+    return F, inliers_indices
 
 
-
-def GetInlierRANSANC(a,b):
-  num_inliers = 0
-  iterations = 2000
-  threshold = 0.005
-  ffinal = 0
-  final_inliers = []
-  max = a.shape[0]
-  # print(a[0,:].shape)
-  for i in range(iterations):
-      indices = []  
-    # if i == 99:
-      for i in range(0, 8):
-        indices.append(random.randint(0, max-1))
-      x1 = a[indices,:]
-      x2 = b[indices,:]
-      ftemp = EstimateFundamentalMatrix(x1,x2)
-      inliers = []
-      # if (len(a) > 8) and (len(b) > 8):
-      for j in range(len(a)):
-        # if j == 1:
-        err = error(a[j,:], b[j,:], ftemp)
-        # print(err)
-        if err < threshold:
-                # print("kaka")
-                inliers.append([j])
-                # print(inliers))
-      if len(inliers) > num_inliers:
-          num_inliers = len(inliers)
-          final_inliers = inliers
-  final_inliers = np.array(final_inliers)
-  pointsWithInliersA = a[final_inliers]
-  pointsWithInliersB = b[final_inliers]
-  pointsWithInliersA = np.reshape(pointsWithInliersA, (pointsWithInliersA.shape[0],2))
-  pointsWithInliersB = np.reshape(pointsWithInliersB, (pointsWithInliersB.shape[0],2))
-  # print(pointsWithInliersB) 
-  ffinal = EstimateFundamentalMatrix(pointsWithInliersA, pointsWithInliersB)
-  print("best fundamental matrix",ffinal, "with no of inliers", num_inliers)
-  return ffinal, final_inliers

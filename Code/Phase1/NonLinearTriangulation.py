@@ -1,49 +1,62 @@
 import numpy as np
-import scipy.optimize as opt
+import cv2
+import scipy.optimize as optimize
 
 
-def NonLinearTriangulation(K, x1, x2, R1, C1, R2, C2, X_init):
-  if x1.shape[0] != X_init.shape[0] or x1.shape[0] != X_init.shape[0]:
-    print("shapes are not equal")
-  else:
-    init = X_init
-    init=init.flatten()
-    # minimize(init, K, x1, x2, R1, C1, R2, C2)
-    optimized_params = opt.least_squares(
-    fun=minimize,
-    x0=init,
-    # method="dogbox",
-    args=[K, x1, x2, R1, C1, R2, C2]) 
-    return optimized_params.x
+def ProjectionMatrix(R,C,K):
+    C = np.reshape(C, (3, 1))        
+    I = np.identity(3)
+    P = np.dot(K, np.dot(R, np.hstack((I, -C))))
+    return P
 
-def minimize(init, K, x1, x2, R1, C1, R2, C2): 
-  temp = init.reshape((x1.shape[0],3))
-  e1 = 0
-  e2 = 0
-  X = np.hstack((temp, np.ones((x1.shape[0],1))))
-  temp1 = np.hstack((np.identity((3)),-C1))
-  PM1 = np.matmul(K, np.matmul(R1,temp1))
-  temp2 = np.hstack((np.identity((3)),-C2))
-  PM2 = np.matmul(K, np.matmul(R2,temp2))
-  p11, p12, p13 = np.reshape(PM1[0,:],(PM1.shape[1],1)), np.reshape(PM1[1,:],(PM1.shape[1],1)), np.reshape(PM1[2,:],(PM1.shape[1],1))
-  p21, p22, p23 =np.reshape(PM2[0,:],(PM2.shape[1],1)), np.reshape(PM2[1,:],(PM2.shape[1],1)), np.reshape(PM2[2,:],(PM2.shape[1],1))
-  frac11 = 0
-  frac12 = 0
-  frac11 = np.divide(np.matmul(p11.transpose(),X.transpose()),np.matmul(p13.transpose(),X.transpose())).transpose()
-  frac12 = np.divide(np.matmul(p12.transpose(),X.transpose()),np.matmul(p13.transpose(),X.transpose())).transpose()
-  u1, v1 = x1[:,0], x1[:,1]
-  term11 = np.square(frac11 - np.reshape(u1, (x1[:,0].shape[0],1))) 
-  term12 = np.square(frac12 - np.reshape(v1, (x1[:,1].shape[0],1)))
-  e1 = np.sqrt(term11+term12)
 
-  frac21 = 0
-  frac22 = 0
-  frac21 = np.divide(np.matmul(p21.transpose(),X.transpose()),np.matmul(p23.transpose(),X.transpose())).transpose()
-  frac22 = np.divide(np.matmul(p22.transpose(),X.transpose()),np.matmul(p23.transpose(),X.transpose())).transpose()
-  u2, v2 = x2[:,0], x2[:,1]
-  term21 = np.square(frac21 - np.reshape(u2, (x2[:,0].shape[0],1))) 
-  term22 = np.square(frac22 - np.reshape(v2, (x2[:,1].shape[0],1)))
-  e2 = np.sqrt(term21+term22)
 
-  error = sum(sum(e1),sum(e2))
-  return error
+def NonLinearTriangulation(K, pts1, pts2, x3D, R1, C1, R2, C2):
+    """    
+    K : Camera Matrix
+    pts1, pts2 : Point Correspondences
+    x3D :  initial 3D point 
+    R2, C2 : relative camera pose
+    Returns:
+        x3D : optimized 3D points
+    """
+    
+    P1 = ProjectionMatrix(R1,C1,K) 
+    P2 = ProjectionMatrix(R2,C2,K)
+    
+    if pts1.shape[0] != pts2.shape[0] != x3D.shape[0]:
+        raise 'Check point dimensions - level nlt'
+
+    x3D_ = []
+    for i in range(len(x3D)):
+        optimized_params = optimize.least_squares(fun=ReprojectionLoss, x0=x3D[i], method="trf", args=[pts1[i], pts2[i], P1, P2])
+        X1 = optimized_params.x
+        x3D_.append(X1)
+    return np.array(x3D_)
+
+
+def ReprojectionLoss(X, pts1, pts2, P1, P2):
+    
+    # X = homo(X.reshape(1,-1)).reshape(-1,1) # make X a column of homogenous vector
+    
+    p1_1T, p1_2T, p1_3T = P1 # rows of P1
+    p1_1T, p1_2T, p1_3T = p1_1T.reshape(1,-1), p1_2T.reshape(1,-1),p1_3T.reshape(1,-1)
+
+    p2_1T, p2_2T, p2_3T = P2 # rows of P2
+    p2_1T, p2_2T, p2_3T = p2_1T.reshape(1,-1), p2_2T.reshape(1,-1), p2_3T.reshape(1,-1)
+
+    ## reprojection error for reference camera points - j = 1
+    u1,v1 = pts1[0], pts1[1]
+    u1_proj = np.divide(p1_1T.dot(X) , p1_3T.dot(X))
+    v1_proj =  np.divide(p1_2T.dot(X) , p1_3T.dot(X))
+    E1= np.square(v1 - v1_proj) + np.square(u1 - u1_proj)
+
+    
+    ## reprojection error for second camera points - j = 2    
+    u2,v2 = pts2[0], pts2[1]
+    u2_proj = np.divide(p2_1T.dot(X) , p2_3T.dot(X))
+    v2_proj =  np.divide(p2_2T.dot(X) , p2_3T.dot(X))    
+    E2= np.square(v2 - v2_proj) + np.square(u2 - u2_proj)
+    
+    error = E1 + E2
+    return error.squeeze()

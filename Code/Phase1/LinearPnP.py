@@ -1,73 +1,48 @@
-### DIRECTLY IMPORTED ###
-
-
+import cv2
 import numpy as np
+from EstimateFundamentalMatrix import *
 
-from Utils.MiscUtils import ProjectionMatrix, homo
 
-def reprojectionErrorPnP(x3D, pts, K, R, C):
-    P = ProjectionMatrix(R,C,K)
+def error_F(pts1,pts2,F):
     
-    Error = []
-    for X, pt in zip(x3D, pts):
+    "Checking the epipolar constraint"
+    x1 = np.array([pts1[0], pts1[1],1])
+    x2 = np.array([pts2[0], pts2[1],1]).T
 
-        p_1T, p_2T, p_3T = P# rows of P
-        p_1T, p_2T, p_3T = p_1T.reshape(1,-1), p_2T.reshape(1,-1), p_3T.reshape(1,-1)
-        X = homo(X.reshape(1,-1)).reshape(-1,1) # make X it a column of homogenous vector
-        ## reprojection error for reference camera points 
-        u, v = pt[0], pt[1]
-        u_proj = np.divide(p_1T.dot(X) , p_3T.dot(X))
-        v_proj =  np.divide(p_2T.dot(X) , p_3T.dot(X))
+    error = np.dot(x2,np.dot(F,x1))
 
-        E = np.square(v - v_proj) + np.square(u - u_proj)
+    return np.abs(error)
 
-        Error.append(E)
+def getInliers(pts1,pts2,idx):
 
-    mean_error = np.mean(np.array(Error).squeeze())
-    return mean_error
+    "Point Correspondence are computed using SIFT feature descriptors, data becomes noisy, RANSAC is used with fundamental matrix with maximum no of Inliers"
+    
+    no_iterations = 2000
+    error_threshold = 0.002
+    inliers_threshold = 0
+    inliers_indices = []
+    f_inliers = None
 
-def PnP(X_set, x_set, K):
-    N = X_set.shape[0]
-    
-    X_4 = homo(X_set)
-    x_3 = homo(x_set)
-    
-    # normalize x
-    K_inv = np.linalg.inv(K)
-    x_n = K_inv.dot(x_3.T).T
-    
-    for i in range(N):
-        X = X_4[i].reshape((1, 4))
-        zeros = np.zeros((1, 4))
-        
-        u, v, _ = x_n[i]
-        
-        u_cross = np.array([[0, -1, v],
-                            [1,  0 , -u],
-                            [-v, u, 0]])
-        X_tilde = np.vstack((np.hstack((   X, zeros, zeros)), 
-                            np.hstack((zeros,     X, zeros)), 
-                            np.hstack((zeros, zeros,     X))))
-        a = u_cross.dot(X_tilde)
-        
-        if i > 0:
-            A = np.vstack((A, a))
-        else:
-            A = a
-            
-    _, _, VT = np.linalg.svd(A)
-    P = VT[-1].reshape((3, 4))
-    R = P[:, :3]
-    U_r, D, V_rT = np.linalg.svd(R) # to enforce Orthonormality
-    R = U_r.dot(V_rT)
-    
-    C = P[:, 3]
-    C = - np.linalg.inv(R).dot(C)
-    
-    if np.linalg.det(R) < 0:
-        R = -R
-        C = -C
-        
-    return R, C
+    for i in range(0, no_iterations):
+        # We need 8 points randomly for 8 points algorithm
+        n_rows = pts1.shape[0]
+        rand_indxs = np.random.choice(n_rows,8)
+        x1 = pts1[rand_indxs,:]
+        x2 = pts2[rand_indxs,:]
+        F = EstimateFundamentalMatrix(x1,x2)
+        indices = []
+
+        if F is not None:
+            for j in range(n_rows):
+                error = error_F(pts1[j,:],pts2[j,:],F)  #x2.TFx1 = 0
+                if error < error_threshold:
+                    indices.append(idx[j])
+
+        if len(indices) > inliers_threshold:
+            inliers_threshold = len(indices)
+            inliers_indices = indices
+            f_inliers = F                       #We choose F with Maximum no of Inliers.
+
+    return F, inliers_indices
 
 

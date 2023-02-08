@@ -1,7 +1,8 @@
 import numpy as np
 
-def EssentialMatrixFromFundamentalMatrix(F, K):
-  E = np.dot(K.T, np.dot(F, K))
-  u, s, vt = np.linalg.svd(E)
-  E = np.dot(u, np.dot(np.diag([1, 1, 0]), vt))
-  return E
+def getEssentialMatrix(K,F):
+    E = K.T.dot(F).dot(K)
+    U,S,V = np.linalg.svd(E)
+    S = [1,1,0]
+
+    return np.dot(U,np.dot(np.diag(S),V))
