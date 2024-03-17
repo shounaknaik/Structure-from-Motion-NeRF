@@ -271,7 +271,6 @@ def main():
 
         C_set.append(Ci)
         R_set.append(Ri)
-        print("Print ho bhadvya")
         ###### WE start with the triangulation
         
         for k in range(0,i):
