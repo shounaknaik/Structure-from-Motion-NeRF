@@ -40,9 +40,5 @@ Non-Linear Triangulation vs Linear Triangulation
   <img width="400" height="300" src="https://user-images.githubusercontent.com/55713396/217653634-1ecd1f9f-574d-4ba1-8769-ddb310030e94.png">
 </p>
 
-Bundle Adjustment
-<p align="center">
-  <img width="400" height="300" src="https://github.com/shounaknaik/Structure-from-Motion-NeRF/assets/55713396/ff316196-7173-4c8a-89ad-00eeff197c68)
-">
-</p>
+
 
