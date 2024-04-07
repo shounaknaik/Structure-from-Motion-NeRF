@@ -8,17 +8,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 from mpl_toolkits import mplot3d
+import os
 
 from EstimateFundamentalMatrix import *
 from GetInliersRANSAC import *
 from EssentialMatrixFromFundamentalMatrix import *
 from ExtractCameraPose import *
 from LinearTriangulation import *
-from NonlinearTriangulation import *
-from DisambiguateCameraPose import *
+from NonLinearTriangulation import *
+from Disambiguate import *
 from LinearPnP import *
-from PnPRANSAC import *
-from NonlinearPnP import *
+from PnPRansac import *
+from NonlinearPNP import *
 from BuildVisibilityMatrix import *
 from BundleAdjustment import *
 
@@ -133,6 +134,12 @@ def main():
     Args = Parser.parse_args()
     Data = Args.Data
     Output = Args.Outputs
+
+    if not os.path.exists(Output):
+        os.makedirs(Output)
+        print("Output Directory created successfully")
+    else:
+        print("Output Directory already exists")   
 
     #Images
     images = []
@@ -363,7 +370,6 @@ def main():
     ax = plt.axes(projection="3d")
     ax.scatter3D(x,y,z,color="green")
     plt.show()
-    plt.savefig(Output+'3D.png')
 
 
 
