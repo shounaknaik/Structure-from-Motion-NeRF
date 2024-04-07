@@ -3,7 +3,7 @@ Phase 1
 
 1) To run the Structure from Motion script:
 
-Run `python3 main.py` in the `./Code/Phase1` folder.
+Run `python3 Wrapper.py` in the `./Code/Phase1` folder.
 
 This will result in all resulting images given in the report in the `./Code/Phase1` folder.
 
